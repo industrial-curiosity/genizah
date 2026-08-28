@@ -1,0 +1,32 @@
+{
+  "name": "genizah",
+  "version": "0.1.0",
+  "description": "Install Genizah agent skills.",
+  "author": "Industrial Curiosity",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/industrial-curiosity/genizah.git"
+  },
+  "homepage": "https://github.com/industrial-curiosity/genizah#readme",
+  "bugs": {
+    "url": "https://github.com/industrial-curiosity/genizah/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "genizah": "bin/genizah.mjs"
+  },
+  "scripts": {
+    "local:init": "node bin/local-init.mjs",
+    "local:search": "node bin/local-search.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ]
+}

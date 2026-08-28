@@ -1,0 +1,67 @@
+{
+  "evals": [
+    {
+      "id": "new-project",
+      "prompt": "Adapt this procedural-map specification bundle for a new Rust command-line game. There is no target repository yet.",
+      "assertions": [
+        "Ask one focused unresolved question at a time before choosing target details.",
+        "Do not invent a language-library, storage, or deployment choice that the user did not provide.",
+        "Return discovered facts, user decisions, and unresolved questions as separate profile sections."
+      ]
+    },
+    {
+      "id": "existing-repository",
+      "prompt": "Customize the bundle for the supplied repository, whose README and build files identify Python 3.12 and a PostgreSQL service.",
+      "assertions": [
+        "Inspect discoverable repository language and runtime facts before asking a question about them.",
+        "Record inspected facts separately from user decisions.",
+        "Ask only unresolved target questions after repository inspection."
+      ]
+    },
+    {
+      "id": "conflicting-requirements",
+      "prompt": "The target must answer under 10 ms at peak load, but the bundle requires deterministic replay for every generation. Adapt it.",
+      "assertions": [
+        "Explain the tradeoff between latency and the determinism invariant.",
+        "Request or record a user decision instead of silently weakening determinism.",
+        "Keep the retained invariant or deliberate deviation visible in the output."
+      ]
+    },
+    {
+      "id": "rejected-invariant",
+      "prompt": "Use the bundle, but remove its versioned random-algorithm invariant because our prototype will change every release.",
+      "assertions": [
+        "Record the rejected invariant as a deliberate deviation.",
+        "Include the user rationale and source-bundle provenance for the deliberate deviation.",
+        "Do not present the removed invariant as retained."
+      ]
+    },
+    {
+      "id": "user-stops-answering",
+      "prompt": "Adapt the bundle for our service. The user answers only that it runs on Kubernetes, then stops responding.",
+      "assertions": [
+        "Return unresolved questions and blockers when the user stops answering.",
+        "Do not invent choices for persistence, failure policy, security, or testing.",
+        "Preserve the Kubernetes statement as a discovered fact or user decision with its source clear."
+      ]
+    },
+    {
+      "id": "unknown-optional-concept-type",
+      "prompt": "Adapt this bundle, which contains an optional concept with type 'BenchmarkNotebook' that is not recognized by the skill.",
+      "assertions": [
+        "Tolerate the unknown optional concept type without rejecting the bundle.",
+        "Continue progressive loading from the index and load the optional concept only if it informs an unresolved choice.",
+        "Keep unknown optional concept identity available in provenance when it is used."
+      ]
+    },
+    {
+      "id": "illustrative-implementation-sample",
+      "prompt": "Adapt a bundle that includes an optional implementation sample with its own unit tests. The normative specification and validation concepts are complete.",
+      "assertions": [
+        "Treat the implementation sample and its tests as optional, illustrative, and non-normative.",
+        "Do not run, port, or adopt the sample tests as required acceptance or conformance work.",
+        "Derive target acceptance scenarios from the normative validation concepts rather than the sample."
+      ]
+    }
+  ]
+}

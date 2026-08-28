@@ -1,0 +1,311 @@
+name: Validate bundles
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-bundles-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate changed bundles and tag indexes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the pull request head
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Set up Node
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: '18'
+
+      - name: Test npm package
+        id: npm_tests
+        continue-on-error: true
+        run: node --test tooling/npm/test/*.test.mjs
+
+      - name: Report npm package test result
+        if: always()
+        shell: python
+        env:
+          NPM_TEST_OUTCOME: ${{ steps.npm_tests.outcome }}
+        run: |
+          from __future__ import annotations
+
+          import os
+          from pathlib import Path
+
+
+          if os.environ.get("NPM_TEST_OUTCOME") != "success":
+              reason = (
+                  "npm package tests failed. Run `node --test tooling/npm/test/*.test.mjs` "
+                  "locally and fix the reported test failures."
+              )
+              print("::error::npm package tests failed.")
+              summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+              if summary_path:
+                  with Path(summary_path).open("a", encoding="utf-8") as summary:
+                      summary.write(
+                          "## npm package validation failed\n\n"
+                          f"{reason}\n"
+                      )
+              raise SystemExit(1)
+
+      - name: Test and validate bundle indexes
+        shell: python
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          from __future__ import annotations
+
+          from dataclasses import dataclass
+          import os
+          from pathlib import Path, PurePosixPath
+          import re
+          import shlex
+          import subprocess
+
+
+          repository_root = Path.cwd()
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          base_sha = os.environ.get("BASE_SHA", "")
+          head_sha = os.environ.get("HEAD_SHA", "")
+
+
+          @dataclass(frozen=True)
+          class ValidationPlan:
+              changed_paths: tuple[str, ...]
+              deleted_paths: tuple[str, ...]
+              selected_bundle_ids: tuple[str, ...]
+              builder_arguments: tuple[str, ...]
+              validated_bundle_ids: tuple[str, ...]
+              validation_description: str
+
+
+          def format_command(arguments: list[str]) -> str:
+              return " ".join(shlex.quote(argument) for argument in arguments)
+
+
+          def write_failure_summary(reason: str, affected: list[str]) -> None:
+              if not summary_path:
+                  return
+              affected_lines = "\n".join(f"* `{item}`" for item in affected) or "* None"
+              with Path(summary_path).open("a", encoding="utf-8") as summary:
+                  summary.write(
+                      "## Bundle validation failed\n\n"
+                      f"{reason}\n\n"
+                      "### Affected bundles or paths\n\n"
+                      f"{affected_lines}\n\n"
+                      "### Remediation\n\n"
+                      "Run `python3 scripts/build-index.py` locally, inspect the reported "
+                      "bundle or tag index, regenerate `tags/`, and include the resulting "
+                      "changes in this pull request.\n"
+                  )
+
+
+          def fail(reason: str, affected: list[str]) -> None:
+              print(f"::error::{reason.splitlines()[0]}")
+              write_failure_summary(reason, affected)
+              raise SystemExit(1)
+
+
+          def run_checked(
+              arguments: list[str],
+              description: str,
+              affected: list[str],
+              *,
+              text: bool = True,
+          ) -> subprocess.CompletedProcess[str] | subprocess.CompletedProcess[bytes]:
+              result = subprocess.run(
+                  arguments,
+                  cwd=repository_root,
+                  check=False,
+                  capture_output=True,
+                  encoding="utf-8" if text else None,
+                  text=text,
+              )
+              if result.returncode != 0:
+                  stdout = result.stdout if isinstance(result.stdout, str) else result.stdout.decode("utf-8", "replace")
+                  stderr = result.stderr if isinstance(result.stderr, str) else result.stderr.decode("utf-8", "replace")
+                  output = (stdout + stderr).strip()
+                  details = f"\n\nOutput:\n{output}" if output else ""
+                  fail(f"{description} failed: `{format_command(arguments)}`.{details}", affected)
+              return result
+
+
+          def parse_name_status(payload: bytes) -> list[tuple[str, str, str]]:
+              records = payload.split(b"\0")
+              changes: list[tuple[str, str, str]] = []
+              position = 0
+              while position < len(records):
+                  raw_status = records[position]
+                  position += 1
+                  if not raw_status:
+                      continue
+                  status = raw_status.decode("ascii", "strict")
+                  if status.startswith(("R", "C")):
+                      if position + 1 >= len(records):
+                          fail("Git reported an incomplete rename or copy record.", ["git diff --name-status -z"])
+                      old_path = records[position].decode("utf-8", "surrogateescape")
+                      new_path = records[position + 1].decode("utf-8", "surrogateescape")
+                      position += 2
+                  else:
+                      if position >= len(records):
+                          fail("Git reported an incomplete changed-path record.", ["git diff --name-status -z"])
+                      old_path = records[position].decode("utf-8", "surrogateescape")
+                      new_path = old_path
+                      position += 1
+                  changes.append((status, old_path, new_path))
+              return changes
+
+
+          def changes_contract(path: str) -> bool:
+              return (
+                  path.startswith(("scripts/", "templates/", "tests/", ".agents/skills/"))
+                  or path == "docs/bundle-format.md"
+                  or path == ".github/workflows/validate-bundles.yml"
+              )
+
+
+          def bundle_id_for(path: str) -> str | None:
+              path_parts = PurePosixPath(path).parts
+              if len(path_parts) >= 2 and path_parts[0] == "bundles":
+                  return path_parts[1]
+              return None
+
+
+          def make_validation_plan(
+              changes: list[tuple[str, str, str]],
+              root: Path,
+          ) -> ValidationPlan:
+              changed_paths = tuple(sorted({
+                  path
+                  for _, old_path, new_path in changes
+                  for path in (old_path, new_path)
+              }))
+              deleted_paths = tuple(sorted({
+                  old_path
+                  for status, old_path, _ in changes
+                  if status[:1] == "D"
+              }))
+
+              candidate_bundle_ids: set[str] = set()
+              for status, _, new_path in changes:
+                  # Rename/copy sources and deletions are context, not changed targets.
+                  if status[:1] not in {"A", "C", "M", "R", "T"}:
+                      continue
+                  bundle_id = bundle_id_for(new_path)
+                  if bundle_id is not None:
+                      candidate_bundle_ids.add(bundle_id)
+              selected_bundle_ids = tuple(sorted(
+                  bundle_id
+                  for bundle_id in candidate_bundle_ids
+                  if (root / "bundles" / bundle_id).is_dir()
+              ))
+              all_bundle_ids = tuple(sorted(
+                  path.name
+                  for path in (root / "bundles").iterdir()
+                  if path.is_dir()
+              ))
+
+              if any(changes_contract(path) for path in changed_paths):
+                  builder_arguments = ("python3", "scripts/build-index.py")
+                  validated_bundle_ids = all_bundle_ids
+                  validation_description = "Full bundle validation for a contract or tool change"
+              else:
+                  builder_arguments = (
+                      "python3",
+                      "scripts/build-index.py",
+                      "--bundles",
+                      *selected_bundle_ids,
+                  )
+                  validated_bundle_ids = selected_bundle_ids
+                  validation_description = "Changed-bundle validation"
+              return ValidationPlan(
+                  changed_paths=changed_paths,
+                  deleted_paths=deleted_paths,
+                  selected_bundle_ids=selected_bundle_ids,
+                  builder_arguments=builder_arguments,
+                  validated_bundle_ids=validated_bundle_ids,
+                  validation_description=validation_description,
+              )
+
+
+          def fail_if_tag_drift(status_output: str) -> None:
+              if status_output.strip():
+                  fail(
+                      "Rebuilding the tag indexes changed tracked or untracked files under `tags/`.",
+                      status_output.splitlines(),
+                  )
+
+
+          def main() -> None:
+              try:
+                  if not re.fullmatch(r"[0-9a-f]{40}", base_sha):
+                      fail("The pull request base SHA is missing or malformed.", ["BASE_SHA"])
+                  if not re.fullmatch(r"[0-9a-f]{40}", head_sha):
+                      fail("The pull request head SHA is missing or malformed.", ["HEAD_SHA"])
+
+                  run_checked(
+                      ["python3", "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"],
+                      "Repository test suite",
+                      ["Repository test suite"],
+                  )
+
+                  diff = run_checked(
+                      ["git", "diff", "--name-status", "-z", base_sha, head_sha, "--"],
+                      "Pull request change discovery",
+                      ["Pull request diff"],
+                      text=False,
+                  )
+                  if not isinstance(diff.stdout, bytes):
+                      fail("Git diff output was not byte-preserving.", ["git diff --name-status -z"])
+                  changes = parse_name_status(diff.stdout)
+                  plan = make_validation_plan(changes, repository_root)
+
+                  run_checked(
+                      list(plan.builder_arguments),
+                      plan.validation_description,
+                      list(plan.selected_bundle_ids or plan.changed_paths or ("No changed bundles",)),
+                  )
+
+                  status = run_checked(
+                      ["git", "status", "--porcelain=v1", "--untracked-files=all", "--", "tags/"],
+                      "Generated tag-index drift check",
+                      ["tags/"],
+                  )
+                  fail_if_tag_drift(status.stdout)
+
+                  validated_summary = ", ".join(plan.validated_bundle_ids) or "none"
+                  deleted_summary = ", ".join(plan.deleted_paths) or "none"
+                  if summary_path:
+                      with Path(summary_path).open("a", encoding="utf-8") as summary:
+                          summary.write(
+                              "## Bundle validation succeeded\n\n"
+                              f"* Validated bundles: {validated_summary}\n"
+                              f"* Deleted paths recorded: {deleted_summary}\n"
+                              "* Current indexes: the complete `tags/` tree was rebuilt and has no drift.\n"
+                          )
+              except SystemExit:
+                  raise
+              except Exception as error:
+                  fail(f"Unexpected validation error: {error}", ["validate-bundles workflow"])
+
+
+          if __name__ == "__main__":
+              main()
