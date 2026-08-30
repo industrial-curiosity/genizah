@@ -1,10 +1,24 @@
 ---
 type: Agent Skill
 name: bundle-authoring
-description: Use when creating or reviewing a specification bundle or its discovery tags; keep normative content technology-neutral and select tags for the core offering, not supporting mechanics.
+description: Use when creating, naming, or reviewing a specification bundle or its discovery tags; confirm consumer-facing identity before authoring.
 ---
 
 # Author a specification bundle
+
+## Bundle identity
+
+Before creating or renaming a bundle, inspect the source material and propose
+two to four generalized names that describe the reusable core offering rather
+than a source implementation, algorithm, or incidental storage form. Give a
+short reason for each suggestion, recommend one when the evidence supports it,
+and invite the user to supply an alternative.
+
+Before writing a bundle index or regenerating discovery indexes, propose the
+candidate discovery tags with a short searchability and accuracy rationale.
+Ask the user to confirm or revise both the selected name and tag set. Do not
+silently choose either consumer-facing identity when the user has not confirmed
+it.
 
 ## Discovery tags
 
