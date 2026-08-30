@@ -1,5 +1,28 @@
 # Genizah CLI
 
+## Overview
+
+Genizah is a catalog of self-contained specification bundles: algorithms,
+strategies, and acceptance scenarios that an AI agent can adapt to a concrete
+implementation. The CLI installs the `genizah` and
+`customize-spec-bundle` skills into your project; bundles stay in the catalog
+until you choose one.
+
+## Example
+
+Install the skills in the project where you want to use a bundle, then ask your
+agent to find and integrate one:
+
+```text
+Use the genizah skill to search for a spec bundle that does <whatever you're thinking of>
+for this project and integrate the bundle I confirm.
+```
+
+The skill inspects the project, recommends a bundle, and waits for your
+confirmation before it starts customization.
+
+## Installation
+
 Install the Genizah discovery and customization skills in a project:
 
 ```sh
@@ -34,4 +57,6 @@ npx --yes genizah search procedural maps
 ```
 
 The installed `genizah` skill recommends a bundle but waits for confirmation.
-After confirmation, it hands the selected bundle to `customize-spec-bundle`.
+After confirmation, it hands the selected bundle to `customize-spec-bundle`
+which reviews your code context and asks clarifying questions before generating
+customized specs.
