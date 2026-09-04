@@ -1,0 +1,24 @@
+schema: spec-driven
+
+context: |
+  Genizah is a catalog of specification bundles with a dependency-free Node.js
+  CLI that installs and searches catalog skills.
+
+  User-facing failures preserve safe defaults and state the exact supported
+  recovery command or flag whenever a safe opt-in override exists.
+
+  Production, remote, local, offline, and test command variants expose the
+  same documented flags, aliases, semantics, and diagnostics.
+
+rules:
+  proposal:
+    - Identify every supported command variant affected by the change.
+    - State user-visible recovery paths for rejected or unsafe operations.
+  specs:
+    - Define requirements and scenarios for each command variant, including parity of flags, aliases, semantics, and diagnostics.
+    - Require safe defaults and exact, actionable recovery guidance for refusals with opt-in overrides.
+  design:
+    - Describe how shared command behavior remains synchronized across variants.
+  tasks:
+    - Include a regression test for each supported command variant whenever a command interface changes.
+    - Include documentation updates for user-visible flags and recovery guidance.

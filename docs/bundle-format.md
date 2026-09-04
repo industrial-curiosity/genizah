@@ -142,6 +142,10 @@ The builder refuses to overwrite unmarked tag files or remove unmarked tag
 directories. This preserves local material if generated output would collide
 with it.
 
+The builder stages the complete generated tree before replacing the current
+tree. If replacement is interrupted, it restores the complete prior tree rather
+than leaving partially generated tag indexes.
+
 ## Start a new bundle
 
 The [`templates/bundle/`](../templates/bundle/) directory is the minimum
@@ -208,7 +212,8 @@ For agent-assisted discovery, install the Genizah skills with
 `npm --prefix ../genizah/tooling/npm run local:init -- .` from a target project
 before the catalog is published. The local command reads the checkout directly,
 installs the `genizah` skill with a local search command, and does not use the
-network. See the [CLI guide](../tooling/npm/README.md) for
+network. It accepts the same `--skills-dir`, `--force`, and `-f` options as the
+published installer. See the [CLI guide](../tooling/npm/README.md) for
 skill-directory selection, JSON search output, confirmation, and the
 customization handoff.
 

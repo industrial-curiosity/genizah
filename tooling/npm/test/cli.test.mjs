@@ -30,6 +30,20 @@ test("passes an init skills directory to the installer", async () => {
   assert.deepEqual(received, { skillsDir: ".claude/skills" });
 });
 
+test("passes either force option to the installer", async () => {
+  for (const option of ["--force", "-f"]) {
+    let received;
+
+    await main(["init", option], {
+      install: async (options) => {
+        received = options;
+      },
+    });
+
+    assert.deepEqual(received, { skillsDir: undefined, force: true });
+  }
+});
+
 test("dispatches search terms to the catalog search", async () => {
   let received;
 

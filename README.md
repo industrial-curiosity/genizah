@@ -100,6 +100,8 @@ python3 scripts/build-index.py --check
 
 Run these commands from the repository root. From elsewhere, for example, run
 `python3 /work/spec-bundles/scripts/build-index.py --root /work/spec-bundles --check`.
+See the [testing guide](docs/testing.md) for the complete Node, Python, index,
+and package-validation commands.
 
 ### Test Genizah locally before publishing
 
@@ -113,6 +115,8 @@ npm --prefix ../genizah/tooling/npm run local:init -- .
 The local installer knows its catalog path and configures the installed
 `genizah` skill to use the local deterministic search command. Then use the
 same agent prompt as above to test discovery and customization before pushing.
+It accepts the same `--skills-dir`, `--force`, and `-f` options as the
+published installer.
 Adjust `../genizah` when your checkout is elsewhere.
 
 ## Learn the format

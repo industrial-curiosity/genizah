@@ -3,6 +3,7 @@
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 
+import { parseInitOptions } from "../lib/init-options.mjs";
 import { installSkills, readCatalogSkillFiles } from "../lib/install-skills.mjs";
 
 function catalogRoot() {
@@ -14,14 +15,18 @@ function packageRoot() {
 }
 
 async function main() {
-  const [targetProject, ...extraArguments] = process.argv.slice(2);
-  if (targetProject === undefined || extraArguments.length > 0) {
-    throw new Error("Usage: npm run local:init -- TARGET_PROJECT");
+  const [targetProject, ...options] = process.argv.slice(2);
+  if (targetProject === undefined) {
+    throw new Error("Usage: npm run local:init -- TARGET_PROJECT [--skills-dir RELATIVE_PATH] [--force|-f]");
   }
+
+  const { force, skillsDir } = parseInitOptions(options);
 
   const targetRoot = resolve(process.env.INIT_CWD || process.cwd(), targetProject);
   const result = await installSkills({
     cwd: targetRoot,
+    force,
+    skillsDir,
     loadCatalogSkillFiles: () => readCatalogSkillFiles(join(catalogRoot(), ".agents", "skills"), {
       localSearchCommand: `npm --prefix ${JSON.stringify(packageRoot())} run local:search --`,
     }),

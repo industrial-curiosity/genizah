@@ -104,11 +104,14 @@ async function selectLocation({ cwd, skillsDir, prompt, write }) {
   return resolveSkillLocation(cwd, response);
 }
 
-async function verifyReplacementTargets(destination) {
+async function verifyReplacementTargets(destination, force) {
   for (const name of SKILL_NAMES) {
     const target = join(destination, name);
-    if (await pathExists(target) && !(await isOwnedSkill(target, name))) {
-      throw new Error(`Refusing to replace unrelated existing skill directory: ${target}`);
+    if (!force && await pathExists(target) && !(await isOwnedSkill(target, name))) {
+      throw new Error(
+        `Refusing to replace unrelated existing skill directory: ${target}. ` +
+        "Re-run init with --force (or -f) to replace it.",
+      );
     }
   }
 }
@@ -170,6 +173,7 @@ async function stageCatalogSkillFiles(staging, files) {
 export async function installSkills({
   cwd = process.cwd(),
   skillsDir,
+  force = false,
   prompt = promptForLocation,
   write = (message) => process.stdout.write(`${message}\n`),
   rename = renameFile,
@@ -178,7 +182,7 @@ export async function installSkills({
 } = {}) {
   const selectedLocation = await selectLocation({ cwd, skillsDir, prompt, write });
   const { location, destination } = await resolveSafeSkillLocation(cwd, selectedLocation.location);
-  await verifyReplacementTargets(destination);
+  await verifyReplacementTargets(destination, force);
   const catalogSkillFiles = await loadCatalogSkillFiles();
   await mkdir(dirname(destination), { recursive: true });
 

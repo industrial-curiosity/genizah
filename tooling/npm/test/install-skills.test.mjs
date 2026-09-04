@@ -153,10 +153,26 @@ test("preserves unrelated skills and refuses to replace an unrelated target skil
 
     await assert.rejects(
       () => install({ cwd: root, skillsDir: ".agents/skills" }),
-      /unrelated existing skill directory/,
+      /unrelated existing skill directory[\s\S]*--force \(or -f\)/,
     );
     assert.equal(await readFile(join(location, "unrelated/SKILL.md"), "utf8"), "keep");
     assert.equal(await readFile(join(location, "customize-spec-bundle/SKILL.md"), "utf8"), "not Genizah");
+  });
+});
+
+test("replaces an unrelated target skill only when forced", async () => {
+  await withProject(async (root) => {
+    const location = join(root, ".agents/skills");
+    const target = join(location, "customize-spec-bundle/SKILL.md");
+    await mkdir(join(location, "customize-spec-bundle"), { recursive: true });
+    await writeFile(target, "not Genizah", "utf8");
+
+    await install({ cwd: root, skillsDir: ".agents/skills", force: true });
+
+    assert.equal(
+      await readFile(target, "utf8"),
+      CATALOG_FILES.get("/industrial-curiosity/genizah/main/.agents/skills/customize-spec-bundle/SKILL.md"),
+    );
   });
 });
 
