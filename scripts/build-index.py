@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import re
+import shutil
 import sys
 import tempfile
 from typing import Sequence
@@ -24,6 +25,7 @@ H2_PATTERN = re.compile(r"^## (.*)$")
 LIST_ITEM_PATTERN = re.compile(r"^\* (.*)$")
 SPECIFICATION_ITEM_PATTERN = re.compile(r"^\* \[([^\]]+)\]\(([^()\s]+)\) - (\S.*\S|\S)$")
 MARKDOWN_LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^()\s]+)\)")
+FOOTNOTE_REFERENCE_PATTERN = re.compile(r"\[\^([^\]]+)\]")
 CONCEPT_SCALAR_PATTERN = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?: (.*))?$")
 CONCEPT_LIST_ITEM_PATTERN = re.compile(r"^  - (\S.*)$")
 CONCEPT_SOURCE_FIELD_PATTERN = re.compile(r"^    ([A-Za-z][A-Za-z0-9_-]*):(?: (.*))?$")
@@ -427,9 +429,20 @@ def validate_bundle_concepts(metadata: BundleMetadata) -> list[ValidationIssue]:
 
         if body_start is None:
             continue
+        source_ids = {source.get("id", "") for _, source in frontmatter.sources}
         for line_number, line in enumerate(lines, start=1):
             if TEMPLATE_MARKER_PATTERN.search(line):
                 issues.append(ValidationIssue(document_path, line_number, "Concept contains an unresolved template marker."))
+            for match in FOOTNOTE_REFERENCE_PATTERN.finditer(line):
+                source_id = match.group(1)
+                if source_id not in source_ids:
+                    issues.append(
+                        ValidationIssue(
+                            document_path,
+                            line_number,
+                            f"Concept footnote references undeclared source: {source_id}",
+                        ),
+                    )
             for match in MARKDOWN_LINK_PATTERN.finditer(line):
                 target, error = resolve_bundle_link(bundle_root, document_path, match.group(1))
                 if error:
@@ -606,23 +619,39 @@ def compare_tag_tree(root: Path, desired: dict[Path, str]) -> list[Path]:
 
 def write_tag_tree(root: Path, desired: dict[Path, str]) -> None:
     """Safely synchronize generated tag files after a complete preflight."""
-    tags_root = root.resolve() / "tags"
+    repository_root = root.resolve()
+    tags_root = repository_root / "tags"
     collisions = _tag_tree_collisions(tags_root, desired)
     if collisions:
         raise ValueError("\n".join(collisions))
 
-    tags_root.mkdir(parents=True, exist_ok=True)
+    repository_root.mkdir(parents=True, exist_ok=True)
+    staging_root = Path(tempfile.mkdtemp(prefix=".tags-staging-", dir=repository_root))
+    staging_tags = staging_root / "tags"
+    backup_root: Path | None = None
+    try:
+        staging_tags.mkdir()
+        _write_tag_files(staging_tags, desired)
+        if tags_root.exists():
+            backup_root = Path(tempfile.mkdtemp(prefix=".tags-backup-", dir=repository_root))
+            backup_root.rmdir()
+            os.replace(tags_root, backup_root)
+        os.replace(staging_tags, tags_root)
+    except BaseException:
+        if backup_root is not None and backup_root.exists() and not tags_root.exists():
+            os.replace(backup_root, tags_root)
+        raise
+    finally:
+        shutil.rmtree(staging_root, ignore_errors=True)
+        if backup_root is not None and backup_root.exists():
+            shutil.rmtree(backup_root)
+
+
+def _write_tag_files(tags_root: Path, desired: dict[Path, str]) -> None:
     for relative_path, contents in desired.items():
         destination = tags_root / relative_path
         destination.parent.mkdir(parents=True, exist_ok=True)
         _replace_text_atomically(destination, contents)
-
-    desired_directories = {path.parts[0] for path in desired if len(path.parts) > 1}
-    for tag_directory in sorted(path for path in tags_root.iterdir() if path.is_dir()):
-        if tag_directory.name not in desired_directories:
-            stale_index = tag_directory / "index.md"
-            stale_index.unlink()
-            tag_directory.rmdir()
 
 
 def _tag_tree_collisions(tags_root: Path, desired: dict[Path, str]) -> list[str]:

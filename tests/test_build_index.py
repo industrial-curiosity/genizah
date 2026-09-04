@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr
+from unittest.mock import patch
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -466,6 +467,19 @@ class ConceptValidationTests(BuildIndexTestCase):
 
             self.assertTrue(any("https://" in issue.message for issue in issues))
 
+    def test_rejects_footnote_reference_without_a_declared_source(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            bundle_root = self.write_bundle(
+                root,
+                concept_contents=VALID_CONCEPT.replace("[^pcg-paper]", "[^unknown-source]", 1),
+            )
+
+            module = self.load_build_index()
+            issues = module.validate_bundle_concepts(self.parse_metadata(module, bundle_root))
+
+            self.assertTrue(any("unknown-source" in issue.message for issue in issues))
+
     def test_skips_reserved_log_markdown_at_every_bundle_depth(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -483,6 +497,27 @@ class ConceptValidationTests(BuildIndexTestCase):
 
 class TagGenerationTests(BuildIndexTestCase):
     """Render and safely synchronize the generated distributed tag indexes."""
+
+    def test_write_restores_complete_prior_tree_when_swap_is_interrupted(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            bundle_root = self.write_bundle(root)
+            module = self.load_build_index()
+            prior = module.render_tag_tree([self.parse_metadata(module, bundle_root)])
+            module.write_tag_tree(root, prior)
+            previous_index = (root / "tags" / "index.md").read_text(encoding="utf-8")
+            desired = {Path("index.md"): "new index\n"}
+            original_replace = module.os.replace
+
+            def interrupt_swap(source, destination):
+                if Path(source).parent.name.startswith(".tags-staging-") and Path(destination).name == "tags":
+                    raise KeyboardInterrupt
+                return original_replace(source, destination)
+
+            with patch.object(module.os, "replace", side_effect=interrupt_swap), self.assertRaises(KeyboardInterrupt):
+                module.write_tag_tree(root, desired)
+
+            self.assertEqual((root / "tags" / "index.md").read_text(encoding="utf-8"), previous_index)
 
     def test_renders_ordinally_sorted_tag_pages_with_all_authors(self):
         alpha_index = VALID_INDEX.replace("Replayable Maps", "Alpha Maps").replace(
