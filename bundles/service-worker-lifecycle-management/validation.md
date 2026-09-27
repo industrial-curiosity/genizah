@@ -1,0 +1,116 @@
+---
+type: Validation
+title: Service Worker Lifecycle Management validation
+description: Portable acceptance scenarios for safe registration, user-mediated activation, and controlled retirement of an application-owned service worker.
+tags:
+  - service-workers
+  - progressive-web-apps
+  - pwa
+  - lifecycle-management
+sources:
+  - id: service-worker-register
+    resource: https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/register
+    title: ServiceWorkerContainer register method
+  - id: service-worker-unregister
+    resource: https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration/unregister
+    title: ServiceWorkerRegistration unregister method
+  - id: controller-change
+    resource: https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/controllerchange_event
+    title: ServiceWorkerContainer controllerchange event
+---
+
+# Service Worker Lifecycle Management
+
+## Scope
+
+These scenarios assess observable lifecycle behavior without prescribing a programming language, worker library, user-interface toolkit, cache implementation, or test framework. The platform's registration, controller-change, and unregistration semantics supply the lifecycle context.[^service-worker-register][^controller-change][^service-worker-unregister]
+
+## Scenario: Unsupported platform
+
+### Given
+
+A client on a platform without service-worker support or required registration security conditions.
+
+### When
+
+The application starts.
+
+### Then
+
+It remains usable without attempting an unsupported registration and does not claim offline readiness.
+
+## Scenario: First installation
+
+### Given
+
+A supported client, no existing registration for the documented scope, and a trusted worker script.
+
+### When
+
+The application starts its registration lifecycle.
+
+### Then
+
+It creates one registration for the documented scope, reports registration failure without breaking the application if it cannot complete, and announces offline readiness only after the adopted readiness condition is met.
+
+## Scenario: Deferred update
+
+### Given
+
+An active controller, an updated worker that has become a waiting candidate, and a user who has not accepted the update.
+
+### When
+
+The application observes the candidate.
+
+### Then
+
+It exposes one clear update decision, continues under the active controller, and does not reload or claim the candidate is active.
+
+## Scenario: Accepted update
+
+### Given
+
+A waiting candidate and a user who accepts the update.
+
+### When
+
+The application requests activation.
+
+### Then
+
+It waits for a controller change before reloading or transitioning the client. If no candidate is waiting, it refreshes or reports the absence of a pending activation without reporting a successful update.
+
+## Scenario: Authorized retirement
+
+### Given
+
+An authorized retirement request, an application-owned registration and cache namespace, and unrelated registrations and caches on the same origin.
+
+### When
+
+The application retires its worker.
+
+### Then
+
+It stops future registration of the retiring worker, requests unregistration only for the application-owned registration, removes only application-owned cached data after a successful request, and verifies later that no replacement registration controls the retired scope. Unrelated registrations and caches remain unchanged.
+
+## Scenario: Retirement failure
+
+### Given
+
+An authorized retirement request whose unregistration operation fails or cannot be confirmed.
+
+### When
+
+The application handles the result.
+
+### Then
+
+It preserves caches unless its independent ownership policy permits removal, remains usable, and reports the failure and next safe action.
+
+[^service-worker-register]: [ServiceWorkerContainer register method](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/register)
+
+[^service-worker-unregister]: [ServiceWorkerRegistration unregister method](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration/unregister)
+
+[^controller-change]: [ServiceWorkerContainer controllerchange event](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/controllerchange_event)
