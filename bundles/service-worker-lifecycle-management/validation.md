@@ -1,7 +1,7 @@
 ---
 type: Validation
 title: Service Worker Lifecycle Management validation
-description: Portable acceptance scenarios for safe registration, user-mediated activation, and controlled retirement of an application-owned service worker.
+description: Portable acceptance scenarios for registration, periodic update checks, version-aware activation, and controlled retirement of an application-owned service worker.
 tags:
   - service-workers
   - progressive-web-apps
@@ -17,6 +17,9 @@ sources:
   - id: controller-change
     resource: https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/controllerchange_event
     title: ServiceWorkerContainer controllerchange event
+  - id: service-worker-update
+    resource: https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration/update
+    title: ServiceWorkerRegistration update method
 ---
 
 # Service Worker Lifecycle Management
@@ -51,13 +54,55 @@ The application starts its registration lifecycle.
 
 ### Then
 
-It creates one registration for the documented scope, reports registration failure without breaking the application if it cannot complete, and announces offline readiness only after the adopted readiness condition is met.
+It creates one registration for the documented scope, reports registration failure without breaking the application if it cannot complete, and announces offline readiness only after the adopted readiness condition is met. It does not offer a reload for the first installation when no worker controls the client.
+
+## Scenario: Due update check
+
+### Given
+
+A registered worker and no durable record of a successful update check within the adopted minimum interval.
+
+### When
+
+The client starts or its periodic check runs.
+
+### Then
+
+It requests an update check and records a successful check only after the request succeeds.[^service-worker-update]
+
+## Scenario: Recent and failed checks
+
+### Given
+
+A registered worker and a periodic update-check schedule.
+
+### When
+
+A check is considered before the minimum interval has elapsed, or a due check fails.
+
+### Then
+
+The recent check is skipped. A failed due check remains due for a later retry and does not erase an already installed worker's readiness.
+
+## Scenario: Matching release identity
+
+### Given
+
+A built release and a controlled page with a waiting candidate that reports the same release identity as the page.
+
+### When
+
+The application observes the candidate and confirms it is still waiting.
+
+### Then
+
+The page visibly identifies the release, and the page and worker use the same identity. Under the adopted safe-activation policy, the application activates the candidate without an update prompt or page reload.
 
 ## Scenario: Deferred update
 
 ### Given
 
-An active controller, an updated worker that has become a waiting candidate, and a user who has not accepted the update.
+An active controller, a waiting candidate with a different or unverifiable release identity, and a user who has not accepted the update.
 
 ### When
 
@@ -79,7 +124,7 @@ The application requests activation.
 
 ### Then
 
-It waits for a controller change before reloading or transitioning the client. If no candidate is waiting, it refreshes or reports the absence of a pending activation without reporting a successful update.
+It preserves in-progress state and waits for a controller change before reloading or transitioning the client once. If no candidate is waiting, it refreshes or reports the absence of a pending activation without reporting a successful update.
 
 ## Scenario: Authorized retirement
 
@@ -114,3 +159,5 @@ It preserves caches unless its independent ownership policy permits removal, rem
 [^service-worker-unregister]: [ServiceWorkerRegistration unregister method](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration/unregister)
 
 [^controller-change]: [ServiceWorkerContainer controllerchange event](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/controllerchange_event)
+
+[^service-worker-update]: [ServiceWorkerRegistration update method](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration/update)

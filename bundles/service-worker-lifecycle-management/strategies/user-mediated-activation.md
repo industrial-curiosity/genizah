@@ -1,7 +1,7 @@
 ---
 type: Strategy
 title: User-mediated service-worker activation
-description: Keep a waiting service-worker update separate from activation until an informed user decision can safely replace the active client.
+description: Compare a waiting worker with the current page and ask for a user decision when activation requires a client transition.
 tags:
   - service-workers
   - progressive-web-apps
@@ -20,28 +20,32 @@ sources:
 
 ## Problem
 
-Activating an update changes which worker controls future requests. Reloading before that change can show stale assets; activating without notice can interrupt data entry or an in-progress task.
+Activating an update changes which worker controls future requests. Reloading before that change can show stale assets; activating without notice can interrupt data entry or an in-progress task. A waiting worker from the same release may need activation without changing the page.
 
 ## Strategy
 
-1. Register or update the worker at the adopted lifecycle time using its trusted identity and documented scope.
-2. Observe whether installation creates a candidate while another controller is active.
-3. Present one durable, accessible update decision that explains the effect of accepting it.
-4. Keep the active controller in place until the user accepts, unless the adopter's documented immediate-activation policy applies.
-5. On acceptance, request candidate activation and wait for the controller-change signal.
-6. After that signal, reload or make the documented state transition exactly once.
-7. If the candidate disappears, activation fails, or the signal does not arrive by the adopted timeout, preserve the current client and present a truthful retry or refresh action.
+1. Register the worker and check for updates on the adopted schedule. Record only successful checks so a failed check can be retried.
+2. Observe a candidate already waiting or installed later. If no worker controls the page, treat it as initial installation and leave the update decision hidden.
+3. Compare the candidate's reported release identity with the current page. Treat an absent or invalid reply as an unverifiable identity.
+4. If the identities match and the adopted safety policy permits it, confirm that the candidate still waits and activate it without a prompt or reload.
+5. For a different or unverifiable identity, present one durable, accessible update decision that explains the effect of accepting it. Keep the active controller in place until the user accepts, unless the adopter's documented immediate-activation policy applies.
+6. On acceptance, preserve in-progress state, request candidate activation, and wait for the controller-change signal.
+7. After that signal, reload or make the documented state transition exactly once.
+8. If the candidate disappears, activation fails, or the signal does not arrive by the adopted timeout, preserve the current client and present a truthful retry or refresh action.
 
 ## Invariants
 
 * The update decision identifies a candidate update; it does not promise activation before controller change.
 * Only one update prompt represents one candidate state at a time.
+* A missing identity reply cannot justify silent activation under the matching-release policy.
 * A reload caused by the update follows controller change, not the activation request.
 * A failed or abandoned activation leaves a usable client and does not erase unsaved state solely to retry.
 
 ## Customization choices
 
 * Prompt placement, wording, accessibility behavior, and whether a deferred prompt reappears.
+* Release identity format, how the page and worker share it, and how long to wait for a candidate reply.
+* Periodic check schedule, minimum interval, and where successful checks are recorded.
 * Immediate-activation eligibility, including data-loss and compatibility criteria.
 * Activation request mechanism, timeout, retry policy, and post-activation transition.
 * How an active client identifies a candidate when registration is managed by application tooling.
