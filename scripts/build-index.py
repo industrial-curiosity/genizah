@@ -417,8 +417,6 @@ def validate_bundle_concepts(metadata: BundleMetadata) -> list[ValidationIssue]:
                 issues.append(ValidationIssue(document_path, 1, f"Concept frontmatter requires non-empty '{field}'."))
         if not frontmatter.tags:
             issues.append(ValidationIssue(document_path, 1, "Concept frontmatter requires at least one 'tags' entry."))
-        if not frontmatter.sources:
-            issues.append(ValidationIssue(document_path, 1, "Concept frontmatter requires at least one 'sources' entry."))
         for source_line, source in frontmatter.sources:
             if not source.get("id"):
                 issues.append(ValidationIssue(document_path, source_line, "Concept source requires a non-empty id."))

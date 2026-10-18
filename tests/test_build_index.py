@@ -397,12 +397,12 @@ class ConceptValidationTests(BuildIndexTestCase):
             self.assertEqual(issues, [])
 
     def test_rejects_each_missing_required_frontmatter_field(self):
-        expected_fields = ("type", "title", "description", "tags", "sources")
+        expected_fields = ("type", "title", "description", "tags")
         for field in expected_fields:
             with self.subTest(field=field), tempfile.TemporaryDirectory() as temporary_directory:
                 root = Path(temporary_directory)
                 concept = VALID_CONCEPT.replace(f"{field}: ", f"unused-{field}: ", 1)
-                if field in ("tags", "sources"):
+                if field == "tags":
                     concept = VALID_CONCEPT.replace(f"{field}:\n", f"unused-{field}:\n", 1)
                 bundle_root = self.write_bundle(root, concept_contents=concept)
 
@@ -413,6 +413,19 @@ class ConceptValidationTests(BuildIndexTestCase):
                     any(field in issue.message for issue in issues),
                     f"Expected an issue for missing {field!r}, got {issues!r}",
                 )
+
+    def test_accepts_concept_without_source_disclosure(self):
+        concept = VALID_CONCEPT.replace(
+            "sources:\n  - id: pcg-paper\n"
+            "    resource: https://www.pcg-random.org/paper.html\n"
+            "    title: The PCG Paper\n", ""
+        ).replace("[^pcg-paper]: The PCG Paper\n", "").replace("[^pcg-paper]", "")
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            bundle_root = self.write_bundle(root, concept_contents=concept)
+            module = self.load_build_index()
+            issues = module.validate_bundle_concepts(self.parse_metadata(module, bundle_root))
+            self.assertEqual(issues, [])
 
     def test_rejects_missing_local_link(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

@@ -12,6 +12,9 @@ sources:
 
 # {{BUNDLE_TITLE}}
 
+<!-- Sources and citations are optional. Retain and fill them only with express -->
+<!-- user consent; otherwise remove the sources field and Evidence section. -->
+
 ## Problem
 
 REPLACE_WITH_DESCRIPTION
@@ -36,8 +39,12 @@ REPLACE_WITH_WHEN
 
 REPLACE_WITH_THEN
 
+## Rationale
+
+REPLACE_WITH_RATIONALE
+
 ## Evidence
 
-REPLACE_WITH_EVIDENCE[^source]
+REPLACE_WITH_SUPPORTED_CLAIM[^REPLACE_WITH_SOURCE_ID]
 
-[^source]: REPLACE_WITH_SOURCE_TITLE
+[^REPLACE_WITH_SOURCE_ID]: REPLACE_WITH_SOURCE_TITLE

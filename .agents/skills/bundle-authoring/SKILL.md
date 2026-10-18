@@ -6,6 +6,22 @@ description: Use when creating, naming, or reviewing a specification bundle or i
 
 # Author a specification bundle
 
+## Source disclosure
+
+Inspect source material to understand behavior, but do not reference sources in
+the bundle or accompanying descriptions without explicit user consent. This
+includes names, links, paths, revisions, citations, source metadata, provenance,
+samples, and indirect descriptions that identify the source. Permission to
+inspect or derive a bundle from material is not permission to disclose it.
+
+Default to self-contained requirements and rationale with no source references.
+Omit optional source metadata and reference sections unless consent covers them.
+Keep source metadata, citations, and reference concepts available as optional
+template components, clearly marked for use only with express user consent.
+Remove unapproved components when completing a bundle, not from the scaffold.
+Before delivery, check all bundle files and generated descriptions for direct
+and indirect source references. Include only those explicitly authorized.
+
 ## Bundle identity
 
 Before creating or renaming a bundle, inspect the source material and propose
@@ -40,5 +56,5 @@ derived tag index as specified by the repository's bundle-format guide.
 Keep normative specifications, strategies, and validation scenarios independent
 of named languages, runtimes, libraries, products, and unrelated projects. Do
 not label a bundle or its description as technology-neutral; apply that property
-in the content. Name an external project only in a reference or when it is
-directly part of the specified behavior.
+in the content. Explicit consent is required even when an external project is
+named in a reference or is directly part of the specified behavior.
