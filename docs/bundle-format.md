@@ -82,9 +82,20 @@ form; all indexed local links must remain inside the bundle and exist.
 
 Every Markdown file in a bundle other than reserved `index.md` and `log.md` is
 an OKF concept. It requires frontmatter with non-empty `type`, `title`,
-`description`, `tags`, and `sources` fields. Each source requires `id` and
-`resource`; `title` is recommended when it improves source recognition. At
-least one resource must be an absolute external HTTPS documentation URL. Use a
+`description`, and `tags` fields. Source disclosure requires explicit user
+consent; permission to inspect or derive from material is not consent to name,
+link, quote, or otherwise identify it. Omit `sources` and reference sections
+when disclosure has not been authorized. Write self-contained requirements and
+rationale instead. This applies to metadata, prose, samples, and generated
+descriptions as well as citations.
+
+The bundle scaffold retains optional source metadata, evidence citations, and
+a reference-concept example. Fill these components only with express user
+consent; otherwise remove them from the completed bundle.
+
+When authorized sources are included, each requires `id` and `resource`;
+`title` is recommended when it improves source recognition. At least one
+resource must be an absolute external HTTPS documentation URL. Use a
 claim-level footnote whose label matches the source ID whenever prose relies on
 that source.
 
@@ -113,7 +124,7 @@ API or a package-specific integration recipe.
 
 ## References
 
-An optional `references/` directory contains supporting material unless a
+With explicit user consent, an optional `references/` directory contains supporting material unless a
 specification explicitly says otherwise. It can contain an OKF `Reference`
 concept, local code samples, and links to precise public repository resources.
 A raw non-Markdown example does not need frontmatter, but an indexed
